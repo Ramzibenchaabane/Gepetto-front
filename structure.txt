@@ -1,0 +1,52 @@
+C:\USERS\RAMZI\DESKTOP\PROJETS\GEPETTO-FRONT\GEPETTO
+|   .eslintrc.json
+|   next-env.d.ts
+|   next.config.js
+|   package-lock.json
+|   package.json
+|   postcss.config.js
+|   README.md
+|   tailwind.config.js
+|   tsconfig.json           
++---public
+|       file.svg
+|       globe.svg
+|       next.svg
+|       vercel.svg
+|       window.svg
+|       
+\---src
+    +---app
+    |   |   favicon.ico
+    |   |   globals.css
+    |   |   layout.tsx
+    |   |   page.tsx
+    |   |   
+    |   +---api
+    |   |   \---generate
+    |   |           route.ts
+    |   |           
+    |   \---fonts
+    |           GeistMonoVF.woff
+    |           GeistVF.woff
+    |           
+    +---components
+    |       chat.module.css
+    |       ChatInterface.tsx
+    |       
+    +---services
+    |       chatService.ts
+    |       
+    +---static
+    |   +---img
+    |   |       accenture-powered-by-logo.png
+    |   |       Gpetto-logo.png
+    |   |       gpetto.png
+    |   |       send-button.png
+    |   |       
+    |   \---maquette
+    |           maquette-gpetto.png
+    |           
+    \---types
+            chat.ts
+            

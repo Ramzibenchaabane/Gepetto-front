@@ -1,179 +1,166 @@
 'use client';
 
-import React, { useState, ChangeEvent, KeyboardEvent } from 'react';
-import { Send, Upload, ChevronDown, X } from 'lucide-react';
-
-// Définition des types
-interface Message {
-  type: 'user' | 'assistant';
-  content: string;
-  files: File[];
-}
-
-interface Model {
-  id: string;
-  name: string;
-}
+import React, { useState, useRef, useEffect } from 'react';
+import type { Message, Model } from '@/types/chat';
+import { v4 as uuidv4 } from 'uuid';
+import styles from './chat.module.css';
+import GpettoLogo from '@/static/img/Gpetto-logo.png';
+import AccentureLogo from '@/static/img/accenture-powered-by-logo.png';
+import SendButton from '@/static/img/send-button.png';
+import Image from 'next/image';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('gpt-4');
-  const [files, setFiles] = useState<File[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('Nemotron');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Couleurs Accenture - Thème sombre
-  const accentureColors = {
-    darkPurple: '#4B0082',  // Violet foncé principal
-    deepPurple: '#2D004F',  // Violet encore plus foncé pour le fond
-    lightAccent: '#8B00FF', // Accent plus clair pour les éléments interactifs
-    black: '#1A0029'        // Presque noir avec une teinte violette
-  };
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const models: Model[] = [
-    { id: 'gpt-4', name: 'GPT-4' },
-    { id: 'claude-3', name: 'Claude 3' },
-    { id: 'llama-2', name: 'Llama 2' },
-    { id: 'palm', name: 'PaLM' }
-  ];
+  const handleSendMessage = async () => {
+    if (inputMessage.trim() === '' || isLoading) return;
 
-  const handleSendMessage = () => {
-    if (inputMessage.trim() !== '') {
-      const newMessage: Message = {
-        type: 'user',
-        content: inputMessage,
-        files: [...files]
+    setIsLoading(true);
+    const userMessage: Message = {
+      id: uuidv4(),
+      type: 'user',
+      content: inputMessage,
+      files: [],
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: selectedModel,
+          prompt: inputMessage,
+        }),
+      });
+
+      const data = await response.json();
+      
+      const assistantMessage: Message = {
+        id: uuidv4(),
+        type: 'assistant',
+        content: data.response,
+        files: [],
+        timestamp: new Date()
       };
-      setMessages([...messages, newMessage]);
-      setInputMessage('');
-      setFiles([]);
-    }
-  };
-
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles([...files, ...newFiles]);
-    }
-  };
-
-  const removeFile = (fileToRemove: File) => {
-    setFiles(files.filter(file => file !== fileToRemove));
-  };
-
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
+      
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#2D004F]">
-      {/* Header avec logo et branding Accenture */}
-      <div className="flex justify-between items-center p-4 bg-[#4B0082]">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center">
-            <span className="text-white font-bold text-2xl">Gepetto</span>
-          </div>
-          <div className="relative">
-            <button
-              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2 rounded bg-[#2D004F] text-white hover:bg-[#3D0066] transition-colors"
-            >
-              {selectedModel}
-              <ChevronDown size={16} />
-            </button>
-            
-            {isModelDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-[#4B0082] rounded shadow-lg z-10">
-                {models.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model.id);
-                      setIsModelDropdownOpen(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-white hover:bg-[#3D0066] transition-colors"
-                  >
-                    {model.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="text-white text-sm font-semibold tracking-wide">
-          POWERED BY ACCENTURE TECHNOLOGY
-        </div>
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        {/* Logo Gpetto */}
+        <Image 
+          src={GpettoLogo} 
+          alt="Gpetto Logo" 
+          className={styles.logo}
+          width={180}
+          height={50}
+          priority
+        />
+
+        {/* Logo Accenture */}
+        <Image 
+          src={AccentureLogo} 
+          alt="Accenture Logo" 
+          className={styles['accenture-logo']}
+          width={200}
+          height={50}
+          priority
+        />
+
+        {/* Sélecteur de modèle */}
+        <button 
+          className={styles['model-button']}
+          onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+        >
+          <span>Nemotron</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" className="text-white ml-2">
+            <path d="M2 4L6 8L10 4" stroke="currentColor" fill="none"/>
+          </svg>
+        </button>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-[#2D004F]">
-        {messages.map((message, index) => (
-          <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[70%] rounded-lg p-4 ${
-              message.type === 'user' 
-                ? 'bg-[#4B0082] text-white' 
-                : 'bg-[#3D0066] text-white'
-            }`}>
-              <p>{message.content}</p>
-              {message.files && message.files.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {message.files.map((file, fileIndex) => (
-                    <div key={fileIndex} className="text-sm text-white/90 flex items-center gap-2">
-                      📎 {file.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+      {/* Zone des messages */}
+      <div className={styles['messages-container']}>
+        {/* Colonne de gauche */}
+        <div className={styles['messages-left']}>
+          {messages.filter(m => m.type === 'user').map((message) => (
+            <div key={message.id} className={styles['message-item']}>
+              <div className={styles['message-header']}>
+                <span>User : {message.content}</span>
+                <span>{message.timestamp.toLocaleString('fr-FR', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Colonne de droite */}
+        <div className={styles['messages-right']}>
+          {messages.filter(m => m.type === 'assistant').map((message) => (
+            <div key={message.id} className={styles['assistant-message']}>
+              <div className={styles['message-header']}>
+                <span>Gpetto :</span>
+                <span>{message.timestamp.toLocaleString('fr-FR', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}</span>
+              </div>
+              <p className={styles['message-content']}>{message.content}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Files Preview */}
-      {files.length > 0 && (
-        <div className="px-4 py-2 bg-[#4B0082]">
-          <div className="flex flex-wrap gap-2">
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center gap-2 bg-[#3D0066] text-white px-3 py-1 rounded">
-                <span className="text-sm">{file.name}</span>
-                <button onClick={() => removeFile(file)} className="hover:text-white/70">
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Input Container */}
-      <div className="p-4 bg-[#4B0082]">
-        <div className="flex gap-2">
-          <label className="flex items-center justify-center w-10 h-10 rounded bg-[#3D0066] hover:bg-[#2D004F] transition-colors cursor-pointer">
-            <input
-              type="file"
-              multiple
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Upload size={20} className="text-white" />
-          </label>
-          
+      {/* Zone de saisie */}
+      <div className={styles['input-container']}>
+        <div className={styles['input-wrapper']}>
           <input
             type="text"
             value={inputMessage}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Message Gepetto..."
-            className="flex-grow px-4 py-2 rounded bg-[#2D004F] text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#8B00FF]"
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder="Type your question here"
+            className={styles.input}
           />
-          
           <button
             onClick={handleSendMessage}
-            className="flex items-center justify-center w-10 h-10 rounded bg-[#8B00FF] hover:bg-[#9B00FF] transition-colors"
+            className={styles['send-button']}
           >
-            <Send size={20} className="text-white" />
+            <Image 
+              src={SendButton} 
+              alt="Send" 
+              width={32}
+              height={32}
+              priority
+            />
           </button>
         </div>
       </div>
