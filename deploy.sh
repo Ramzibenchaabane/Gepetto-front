@@ -86,29 +86,56 @@ set_permissions() {
     if [ ! -e "$path" ]; then
         log "ERROR" "Le chemin $path n'existe pas"
         return 1
-    }
+    fi
     
     if [ "$type" = "directory" ]; then
-        execute_command "chmod $APP_DIR_MODE '$path'" \
-            "Attribution des permissions du répertoire: $path" \
-            "Échec de l'attribution des permissions pour le répertoire: $path"
-            
-        execute_command "chown $DEPLOY_USER:$NGINX_GROUP '$path'" \
-            "Attribution du propriétaire pour le répertoire: $path" \
-            "Échec de l'attribution du propriétaire pour le répertoire: $path"
-            
-        execute_command "chmod g+s '$path'" \
-            "Attribution du sticky bit pour le répertoire: $path" \
-            "Échec de l'attribution du sticky bit pour le répertoire: $path"
+        if ! chmod "$APP_DIR_MODE" "$path"; then
+            log "ERROR" "Échec de l'attribution des permissions pour le répertoire: $path"
+            return 1
+        fi
+        
+        if ! chown "$DEPLOY_USER:$NGINX_GROUP" "$path"; then
+            log "ERROR" "Échec de l'attribution du propriétaire pour le répertoire: $path"
+            return 1
+        fi
+        
+        if ! chmod g+s "$path"; then
+            log "ERROR" "Échec de l'attribution du sticky bit pour le répertoire: $path"
+            return 1
+        fi
+        
+        log "SUCCESS" "Permissions configurées avec succès pour le répertoire: $path"
     else
-        execute_command "chmod $APP_FILE_MODE '$path'" \
-            "Attribution des permissions du fichier: $path" \
-            "Échec de l'attribution des permissions pour le fichier: $path"
-            
-        execute_command "chown $DEPLOY_USER:$NGINX_GROUP '$path'" \
-            "Attribution du propriétaire pour le fichier: $path" \
-            "Échec de l'attribution du propriétaire pour le fichier: $path"
+        if ! chmod "$APP_FILE_MODE" "$path"; then
+            log "ERROR" "Échec de l'attribution des permissions pour le fichier: $path"
+            return 1
+        fi
+        
+        if ! chown "$DEPLOY_USER:$NGINX_GROUP" "$path"; then
+            log "ERROR" "Échec de l'attribution du propriétaire pour le fichier: $path"
+            return 1
+        fi
+        
+        log "SUCCESS" "Permissions configurées avec succès pour le fichier: $path"
     fi
+}
+
+# Fonction pour configurer récursivement les permissions
+set_permissions_recursive() {
+    local path="$1"
+    log "INFO" "Configuration récursive des permissions pour: $path"
+    
+    # Configurer les permissions du répertoire principal
+    if ! set_permissions "$path" "directory"; then
+        return 1
+    fi
+    
+    # Configurer les permissions pour tous les sous-répertoires
+    find "$path" -type d -exec bash -c 'if ! set_permissions "$0" "directory"; then exit 1; fi' {} \;
+    
+    # Configurer les permissions pour tous les fichiers
+    find "$path" -type f -exec bash -c 'if ! set_permissions "$0" "file"; then exit 1; fi' {} \;
+}
 
 # Fonction pour vérifier les prérequis système
 check_prerequisites() {
