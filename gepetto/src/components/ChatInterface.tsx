@@ -16,10 +16,39 @@ const ChatInterface = () => {
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Ajuste automatiquement la hauteur du textarea
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'inherit';
+      const computed = window.getComputedStyle(textarea);
+      const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
+                   + parseInt(computed.getPropertyValue('padding-top'), 10)
+                   + textarea.scrollHeight
+                   + parseInt(computed.getPropertyValue('padding-bottom'), 10)
+                   + parseInt(computed.getPropertyValue('border-bottom-width'), 10);
+
+      textarea.style.height = `${Math.min(height, 150)}px`; // Maximum height: 150px
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+    adjustTextareaHeight();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === '' || isLoading) return;
@@ -35,6 +64,9 @@ const ChatInterface = () => {
     
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'inherit';
+    }
 
     try {
       const response = await fetch('/api/generate', {
@@ -68,7 +100,6 @@ const ChatInterface = () => {
     <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
-        {/* Logo Gpetto */}
         <Image 
           src={GpettoLogo} 
           alt="Gpetto Logo" 
@@ -78,7 +109,6 @@ const ChatInterface = () => {
           priority
         />
 
-        {/* Logo Accenture */}
         <Image 
           src={AccentureLogo} 
           alt="Accenture Logo" 
@@ -88,7 +118,6 @@ const ChatInterface = () => {
           priority
         />
 
-        {/* Sélecteur de modèle */}
         <button 
           className={styles['model-button']}
           onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
@@ -100,12 +129,12 @@ const ChatInterface = () => {
         </button>
       </div>
 
-      {/* Zone des messages */}
+      {/* Messages area */}
       <div className={styles['messages-container']}>
-        {/* Colonne de gauche */}
+        {/* Left column */}
         <div className={styles['messages-left']}>
           {messages.filter(m => m.type === 'user').map((message) => (
-            <div key={message.id} className={styles['message-item']}>
+            <div key={message.id} className={`${styles['message-item']} ${styles.fadeIn}`}>
               <div className={styles['message-header']}>
                 <span>User : {message.content}</span>
                 <span>{message.timestamp.toLocaleString('fr-FR', { 
@@ -120,10 +149,10 @@ const ChatInterface = () => {
           ))}
         </div>
 
-        {/* Colonne de droite */}
+        {/* Right column */}
         <div className={styles['messages-right']}>
           {messages.filter(m => m.type === 'assistant').map((message) => (
-            <div key={message.id} className={styles['assistant-message']}>
+            <div key={message.id} className={`${styles['assistant-message']} ${styles.fadeIn}`}>
               <div className={styles['message-header']}>
                 <span>Gpetto :</span>
                 <span>{message.timestamp.toLocaleString('fr-FR', { 
@@ -137,22 +166,36 @@ const ChatInterface = () => {
               <p className={styles['message-content']}>{message.content}</p>
             </div>
           ))}
+          {isLoading && (
+            <div className={`${styles['assistant-message']} ${styles.fadeIn}`}>
+              <div className={styles['message-header']}>
+                <span>Gpetto :</span>
+              </div>
+              <p className={`${styles['message-content']} ${styles.thinking}`}>
+                I&apos;m thinking...
+              </p>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Zone de saisie */}
+      {/* Input area */}
       <div className={styles['input-container']}>
         <div className={styles['input-wrapper']}>
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             placeholder="Type your question here"
             className={styles.input}
+            rows={1}
           />
           <button
             onClick={handleSendMessage}
             className={styles['send-button']}
+            disabled={isLoading}
           >
             <Image 
               src={SendButton} 

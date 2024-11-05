@@ -1,66 +1,92 @@
 .container {
-    @apply flex flex-col h-screen bg-black;
+  @apply flex flex-col h-screen bg-black;
+}
+
+/* Header styles */
+.header {
+  @apply flex items-center justify-between px-8 py-4;
+}
+
+.logo {
+  @apply object-contain;
+}
+
+.accenture-logo {
+  @apply object-contain;
+}
+
+.model-button {
+  @apply bg-[#2D1940] text-white px-6 py-2 rounded flex items-center space-x-2;
+}
+
+/* Messages area */
+.messages-container {
+  @apply flex-1 overflow-hidden flex;
+}
+
+.messages-left {
+  @apply w-[40%] p-6 overflow-y-auto bg-[#13001F];
+}
+
+.messages-right {
+  @apply w-[60%] p-6 border-l border-[#2D1940] overflow-y-auto bg-[#13001F];
+}
+
+.message-item {
+  @apply mb-4;
+}
+
+.message-header {
+  @apply flex justify-between items-center text-gray-400 text-sm mb-1;
+}
+
+.assistant-message {
+  @apply mb-4 bg-[#2D1940] rounded-lg p-4;
+}
+
+.message-content {
+  @apply text-white whitespace-pre-wrap;
+}
+
+/* Input area */
+.input-container {
+  @apply p-6 bg-[#13001F];
+}
+
+.input-wrapper {
+  @apply relative flex items-center max-w-4xl mx-auto;
+}
+
+.input {
+  @apply w-full bg-[#2D1940] text-white px-4 py-3 rounded-lg pr-12 focus:outline-none resize-none min-h-[44px] max-h-[150px];
+}
+
+.send-button {
+  @apply absolute right-3 top-1/2 transform -translate-y-1/2 disabled:opacity-50;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  /* Header styles */
-  .header {
-    @apply flex items-center justify-between px-8 py-4;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  .logo {
-    @apply object-contain;
-  }
-  
-  .accenture-logo {
-    @apply object-contain;
-  }
-  
-  .model-button {
-    @apply bg-[#2D1940] text-white px-6 py-2 rounded flex items-center space-x-2;
-  }
-  
-  /* Messages area */
-  .messages-container {
-    @apply flex-1 overflow-hidden flex;
-  }
-  
-  .messages-left {
-    @apply w-[40%] p-6 overflow-y-auto bg-[#13001F];
-  }
-  
-  .messages-right {
-    @apply w-[60%] p-6 border-l border-[#2D1940] overflow-y-auto bg-[#13001F];
-  }
-  
-  .message-item {
-    @apply mb-4;
-  }
-  
-  .message-header {
-    @apply flex justify-between items-center text-gray-400 text-sm mb-1;
-  }
-  
-  .assistant-message {
-    @apply mb-4 bg-[#2D1940] rounded-lg p-4;
-  }
-  
-  .message-content {
-    @apply text-white whitespace-pre-wrap;
-  }
-  
-  /* Input area */
-  .input-container {
-    @apply p-6 bg-[#13001F];
-  }
-  
-  .input-wrapper {
-    @apply relative flex items-center max-w-4xl mx-auto;
-  }
-  
-  .input {
-    @apply w-full bg-[#2D1940] text-white px-4 py-3 rounded-lg pr-12 focus:outline-none;
-  }
-  
-  .send-button {
-    @apply absolute right-3 top-1/2 transform -translate-y-1/2;
-  }
+}
+
+.fadeIn {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@keyframes thinking {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.thinking {
+  animation: thinking 1.5s infinite ease-in-out;
+}
