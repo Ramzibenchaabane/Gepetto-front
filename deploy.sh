@@ -109,7 +109,6 @@ set_permissions() {
             "Attribution du propriétaire pour le fichier: $path" \
             "Échec de l'attribution du propriétaire pour le fichier: $path"
     fi
-}
 
 # Fonction pour vérifier les prérequis système
 check_prerequisites() {
