@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { GenerateRequest, ApiError } from '@/types/chat';
+import { getApiUrl, getApiEndpoint } from '@/config/api';
 
-const BACKEND_URL = 'http://66.114.112.70:22186/generate';
+const BACKEND_URL = `${getApiUrl()}${getApiEndpoint()}`;
 
 async function generateResponse(prompt: string, model: string): Promise<Response> {
   console.log(`Sending request to ${BACKEND_URL} with model: ${model}, prompt: ${prompt}`);

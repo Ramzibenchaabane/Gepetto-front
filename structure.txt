@@ -1,4 +1,5 @@
 C:\USERS\RAMZI\DESKTOP\PROJETS\GEPETTO-FRONT\GEPETTO
+|   .env.local
 |   .eslintrc.json
 |   next-env.d.ts
 |   next.config.js
@@ -7,7 +8,7 @@ C:\USERS\RAMZI\DESKTOP\PROJETS\GEPETTO-FRONT\GEPETTO
 |   postcss.config.js
 |   README.md
 |   tailwind.config.js
-|   tsconfig.json           
+|   tsconfig.json          
 +---public
 |       file.svg
 |       globe.svg
@@ -33,6 +34,9 @@ C:\USERS\RAMZI\DESKTOP\PROJETS\GEPETTO-FRONT\GEPETTO
     +---components
     |       chat.module.css
     |       ChatInterface.tsx
+    |       
+    +---config
+    |       api.ts
     |       
     +---services
     |       chatService.ts

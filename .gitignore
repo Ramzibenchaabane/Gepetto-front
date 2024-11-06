@@ -134,3 +134,4 @@ gepetto/next.config.ts
 *.json
 *.mjs
 /gepetto/public
+gepetto/src/static/img/Gpetto-logo2.png
