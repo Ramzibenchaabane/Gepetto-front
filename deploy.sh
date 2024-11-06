@@ -1,168 +1,100 @@
 #!/bin/bash
 
-# Vérification des arguments
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <chemin_vers_config.env>"
-    exit 1
-fi
+# Arrêt du script en cas d'erreur
+set -e
 
-CONFIG_FILE="$1"
-
-# Vérification de l'existence du fichier de configuration
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Erreur: Le fichier de configuration '$CONFIG_FILE' n'existe pas."
-    exit 1
-fi
-
-# Chargement de la configuration
-source "$CONFIG_FILE"
-
-# Fonction pour logger les étapes
-log() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "$timestamp - $1"
-    if [ ! -z "$LOG_DIR" ]; then
-        echo "$timestamp - $1" >> "$LOG_DIR/deploy.log"
-    fi
-}
-
-# Création des répertoires nécessaires
-create_directories() {
-    log "Création des répertoires..."
-    mkdir -p "$DEPLOY_DIR" "$BACKUP_DIR" "$LOG_DIR"
-    chown -R $SUDO_USER:$SUDO_USER "$DEPLOY_DIR" "$BACKUP_DIR" "$LOG_DIR"
-}
-
-# Vérification des droits sudo
-check_sudo() {
-    if [[ $EUID -ne 0 ]]; then
-        log "Ce script doit être exécuté avec les droits sudo"
-        exit 1
-    fi
-}
+echo "🚀 Démarrage du déploiement de Gepetto..."
 
 # Installation des dépendances système
-install_system_dependencies() {
-    log "Installation des dépendances système..."
-    apt-get update && apt-get upgrade -y
-    apt-get install -y curl git nginx
-}
+echo "📦 Installation des dépendances système..."
+sudo apt update
+sudo apt install -y nodejs npm git nginx
 
-# Installation de Node.js
-install_nodejs() {
-    log "Installation de Node.js ${NODE_VERSION}..."
-    if [ ! -d "/root/.nvm" ]; then
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        nvm install "$NODE_VERSION"
-        nvm use "$NODE_VERSION"
-    fi
-}
+# Installation de la dernière version LTS de Node.js
+echo "🔄 Installation de Node.js LTS..."
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
 
-# Configuration de Nginx
-configure_nginx() {
-    log "Configuration de Nginx..."
-    local ssl_config=""
-    
-    if [ "$NGINX_SSL_ENABLED" = true ]; then
-        ssl_config="
-        listen 443 ssl;
-        ssl_certificate $SSL_CERT_PATH;
-        ssl_certificate_key $SSL_KEY_PATH;
-        # Configuration SSL supplémentaire
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_prefer_server_ciphers off;
-        "
-    fi
+# Vérification des versions
+echo "ℹ️ Versions installées:"
+node --version
+npm --version
 
-    cat > "/etc/nginx/sites-available/$APP_NAME" <<EOF
+# Installation de PM2 globalement
+echo "📊 Installation de PM2..."
+sudo npm install -g pm2
+
+# Préparation du répertoire
+echo "📁 Préparation du répertoire de déploiement..."
+sudo mkdir -p /var/www/gepetto
+sudo chown -R www-data:www-data /var/www/gepetto
+sudo chmod -R 755 /var/www/gepetto
+
+# Clonage et organisation des fichiers
+echo "📥 Clonage du repository..."
+cd /var/www
+sudo -u www-data git clone https://github.com/Ramzibenchaabane/Gepetto-front.git temp
+sudo -u www-data cp -r temp/Gepetto-front/gepetto/* /var/www/gepetto/
+sudo -u www-data cp -r temp/Gepetto-front/gepetto/.* /var/www/gepetto/ 2>/dev/null || true
+sudo -u www-data rm -rf temp
+
+# Installation des dépendances du projet
+echo "📚 Installation des dépendances du projet..."
+cd /var/www/gepetto
+sudo -u www-data npm install
+
+# Configuration des variables d'environnement
+echo "🔒 Configuration des variables d'environnement..."
+sudo -u www-data cat > .env.local << EOL
+NEXT_PUBLIC_API_URL=http://66.114.112.70
+NEXT_PUBLIC_API_PORT=22186
+NEXT_PUBLIC_API_ENDPOINT=/generate
+EOL
+
+# Build de l'application
+echo "🏗️ Build de l'application..."
+sudo -u www-data npm run build
+
+# Configuration Nginx
+echo "🔧 Configuration de Nginx..."
+sudo cat > /etc/nginx/sites-available/gepetto << EOL
 server {
-    listen ${NGINX_PORT};
-    server_name ${NGINX_SERVER_NAME};
-    
-    ${ssl_config}
-
-    root ${DEPLOY_DIR}/build;
-    index index.html;
+    listen 80;
+    server_name _;  # Remplacer par votre domaine si vous en avez un
 
     location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    location /api {
-        proxy_pass ${API_URL};
+        proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
         proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 }
-EOF
+EOL
 
-    ln -sf "/etc/nginx/sites-available/$APP_NAME" "/etc/nginx/sites-enabled/"
-    rm -f /etc/nginx/sites-enabled/default
-    
-    # Test de la configuration
-    nginx -t
-    systemctl restart nginx
-}
+# Activation de la configuration Nginx
+sudo ln -sf /etc/nginx/sites-available/gepetto /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
 
-# Sauvegarde de l'application existante
-backup_application() {
-    if [ -d "$DEPLOY_DIR" ]; then
-        log "Création d'une sauvegarde..."
-        local backup_file="$BACKUP_DIR/${APP_NAME}_$(date +%Y%m%d_%H%M%S).tar.gz"
-        tar -czf "$backup_file" -C "$DEPLOY_DIR" .
-        
-        # Suppression des anciennes sauvegardes
-        cd "$BACKUP_DIR" && ls -t | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm
-    fi
-}
+# Configuration et démarrage avec PM2
+echo "🚦 Démarrage de l'application avec PM2..."
+cd /var/www/gepetto
+sudo -u www-data pm2 delete gepetto 2>/dev/null || true
+sudo -u www-data pm2 start npm --name "gepetto" -- start
+sudo -u www-data pm2 startup
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u www-data --hp /var/www
+sudo -u www-data pm2 save
 
-# Déploiement de l'application
-create_deploy_script() {
-    log "Création du script de déploiement..."
-    cat > "/usr/local/bin/deploy-react-app.sh" <<EOF
-#!/bin/bash
-source "${CONFIG_FILE}"
+# Configuration des permissions pour les logs PM2
+sudo mkdir -p /var/log/pm2
+sudo chown www-data:www-data /var/log/pm2
 
-cd "${DEPLOY_DIR}"
+echo "✅ Déploiement terminé! L'application devrait être accessible sur http://[ip-ec2]"
 
-# Sauvegarde
-$(declare -f backup_application)
-backup_application
-
-# Pull des dernières modifications
-git pull origin "${GITHUB_BRANCH}"
-
-# Installation des dépendances
-npm install ${NPM_INSTALL_FLAGS}
-
-# Build de l'application
-npm run build
-
-# Redémarrage de Nginx
-systemctl restart nginx
-
-echo "Déploiement terminé!"
-EOF
-
-    chmod +x "/usr/local/bin/deploy-react-app.sh"
-}
-
-# Exécution principale
-main() {
-    check_sudo
-    create_directories
-    install_system_dependencies
-    install_nodejs
-    configure_nginx
-    create_deploy_script
-    
-    log "Installation terminée!"
-    log "Pour déployer l'application, utilisez: sudo /usr/local/bin/deploy-react-app.sh"
-}
-
-main
+# Affichage des logs pour vérification
+echo "📜 Affichage des logs..."
+sudo -u www-data pm2 logs gepetto --lines 10
