@@ -26,14 +26,16 @@ if [ "$AVAILABLE_SPACE" -lt "$MIN_SPACE_GB" ]; then
     error "Espace disque insuffisant. ${AVAILABLE_SPACE}GB disponible, ${MIN_SPACE_GB}GB requis"
 fi
 
-# Configuration initiale
+# Configuration des chemins
 APP_DIR="/var/www/gepetto"
 TEMP_DIR="/tmp/gepetto-temp"
+PM2_ROOT="/var/www/.pm2"
 REPO_URL="https://github.com/Ramzibenchaabane/Gepetto-front.git"
 
 # Nettoyage initial
 log "Nettoyage des répertoires temporaires..."
 rm -rf "$TEMP_DIR"
+rm -rf "$PM2_ROOT"
 mkdir -p "$TEMP_DIR"
 
 # Installation des dépendances système
@@ -51,12 +53,21 @@ log "Vérification des versions installées..."
 node --version || error "Node.js n'est pas installé correctement"
 npm --version || error "npm n'est pas installé correctement"
 
-# Installation de PM2
-log "Installation de PM2..."
+# Configuration de PM2
+log "Configuration de PM2..."
+npm uninstall -g pm2 2>/dev/null || true
 npm install -g pm2 || error "Échec de l'installation de PM2"
 
-# Préparation des répertoires
-log "Préparation des répertoires..."
+# Préparation des répertoires PM2
+log "Préparation des répertoires PM2..."
+mkdir -p "$PM2_ROOT"/{logs,pids,modules}
+touch "$PM2_ROOT"/pm2.log
+touch "$PM2_ROOT"/module_conf.json
+chown -R www-data:www-data "$PM2_ROOT"
+chmod -R 755 "$PM2_ROOT"
+
+# Préparation des répertoires de l'application
+log "Préparation des répertoires de l'application..."
 mkdir -p "$APP_DIR"
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
@@ -90,6 +101,10 @@ sudo -u www-data npm cache clean --force
 sudo -u www-data rm -rf node_modules package-lock.json
 sudo -u www-data npm install || error "Échec de l'installation des dépendances"
 
+# Installation de sharp pour l'optimisation des images
+log "Installation de sharp..."
+sudo -u www-data npm install sharp || error "Échec de l'installation de sharp"
+
 # Configuration des variables d'environnement
 log "Configuration des variables d'environnement..."
 sudo -u www-data cat > "$APP_DIR/.env.local" << EOL
@@ -100,6 +115,7 @@ EOL
 
 # Build de l'application
 log "Build de l'application..."
+cd "$APP_DIR"
 sudo -u www-data npm run build || error "Échec du build de l'application"
 
 # Configuration Nginx
@@ -132,38 +148,39 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t || error "Configuration Nginx invalide"
 systemctl restart nginx || error "Échec du redémarrage de Nginx"
 
-# Configuration et démarrage avec PM2
-log "Configuration et démarrage avec PM2..."
+# Démarrage de l'application avec PM2
+log "Démarrage de l'application avec PM2..."
 cd "$APP_DIR"
-sudo -u www-data pm2 delete gepetto 2>/dev/null || true
-sudo -u www-data pm2 start npm --name "gepetto" -- start || error "Échec du démarrage de l'application"
-sudo -u www-data pm2 startup || error "Échec de la configuration du démarrage automatique"
-env PATH=$PATH:/usr/bin pm2 startup systemd -u www-data --hp /var/www || error "Échec de la configuration systemd"
-sudo -u www-data pm2 save || error "Échec de la sauvegarde de la configuration PM2"
+sudo -u www-data PM2_HOME="$PM2_ROOT" pm2 delete all 2>/dev/null || true
+sudo -u www-data PM2_HOME="$PM2_ROOT" pm2 start npm --name "gepetto" -- start || error "Échec du démarrage de l'application"
 
-# Configuration des logs PM2
-log "Configuration des logs PM2..."
-mkdir -p /var/log/pm2
-chown www-data:www-data /var/log/pm2
-chmod 755 /var/log/pm2
+# Configuration du démarrage automatique
+log "Configuration du démarrage automatique..."
+sudo env PATH=$PATH:/usr/bin PM2_HOME="$PM2_ROOT" pm2 startup systemd -u www-data --hp /var/www || error "Échec de la configuration systemd"
+sudo -u www-data PM2_HOME="$PM2_ROOT" pm2 save || error "Échec de la sauvegarde de la configuration PM2"
 
 # Vérification finale
-log "Vérification du service..."
+log "Vérification des services..."
 if ! systemctl is-active --quiet nginx; then
     error "Nginx n'est pas en cours d'exécution"
 fi
 
-if ! sudo -u www-data pm2 list | grep -q "gepetto"; then
+if ! sudo -u www-data PM2_HOME="$PM2_ROOT" pm2 list | grep -q "gepetto"; then
     error "L'application n'est pas en cours d'exécution"
 fi
 
+# Récupération de l'IP
+IP_ADDRESS=$(hostname -I | awk '{print $1}')
+if [ -z "$IP_ADDRESS" ]; then
+    IP_ADDRESS="votre-ip-serveur"
+fi
+
 # Affichage des informations finales
-IP_ADDRESS=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 log "✅ Déploiement terminé avec succès!"
 log "📝 Logs Nginx: /var/log/nginx/gepetto-*.log"
-log "📝 Logs PM2: pm2 logs gepetto"
+log "📝 Logs PM2: sudo -u www-data PM2_HOME=$PM2_ROOT pm2 logs gepetto"
 log "🌐 L'application devrait être accessible sur http://${IP_ADDRESS}"
 
 # Affichage des logs pour vérification
 log "📜 Dernières lignes des logs..."
-sudo -u www-data pm2 logs gepetto --lines 10
+sudo -u www-data PM2_HOME="$PM2_ROOT" pm2 logs gepetto --lines 10
