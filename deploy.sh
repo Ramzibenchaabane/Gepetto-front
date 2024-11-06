@@ -24,19 +24,32 @@ npm --version
 echo "📊 Installation de PM2..."
 sudo npm install -g pm2
 
-# Préparation du répertoire
+# Préparation du répertoire temporaire dans /tmp
+echo "📁 Préparation du répertoire temporaire..."
+sudo rm -rf /tmp/gepetto-temp
+sudo mkdir -p /tmp/gepetto-temp
+sudo chown -R ubuntu:ubuntu /tmp/gepetto-temp
+
+# Clonage dans le répertoire temporaire
+echo "📥 Clonage du repository..."
+cd /tmp/gepetto-temp
+git clone https://github.com/Ramzibenchaabane/Gepetto-front.git
+
+# Préparation du répertoire de déploiement
 echo "📁 Préparation du répertoire de déploiement..."
 sudo mkdir -p /var/www/gepetto
+sudo rm -rf /var/www/gepetto/*
 sudo chown -R www-data:www-data /var/www/gepetto
 sudo chmod -R 755 /var/www/gepetto
 
-# Clonage et organisation des fichiers
-echo "📥 Clonage du repository..."
-cd /var/www
-sudo -u www-data git clone https://github.com/Ramzibenchaabane/Gepetto-front.git temp
-sudo -u www-data cp -r temp/Gepetto-front/gepetto/* /var/www/gepetto/
-sudo -u www-data cp -r temp/Gepetto-front/gepetto/.* /var/www/gepetto/ 2>/dev/null || true
-sudo -u www-data rm -rf temp
+# Copie des fichiers
+echo "📦 Copie des fichiers..."
+sudo cp -r /tmp/gepetto-temp/Gepetto-front/gepetto/* /var/www/gepetto/
+sudo cp -r /tmp/gepetto-temp/Gepetto-front/gepetto/.* /var/www/gepetto/ 2>/dev/null || true
+sudo chown -R www-data:www-data /var/www/gepetto
+
+# Nettoyage du répertoire temporaire
+sudo rm -rf /tmp/gepetto-temp
 
 # Installation des dépendances du projet
 echo "📚 Installation des dépendances du projet..."
@@ -60,7 +73,7 @@ echo "🔧 Configuration de Nginx..."
 sudo cat > /etc/nginx/sites-available/gepetto << EOL
 server {
     listen 80;
-    server_name _;  # Remplacer par votre domaine si vous en avez un
+    server_name _;
 
     location / {
         proxy_pass http://localhost:3000;

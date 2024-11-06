@@ -131,7 +131,6 @@ dist
 gepetto/.eslintrc.json
 gepetto/next-env.d.ts
 gepetto/next.config.ts
-*.json
 *.mjs
 /gepetto/public
 gepetto/src/static/img/Gpetto-logo2.png
